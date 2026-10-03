@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>පන්ති කාලසටහන</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e9eff2;--ink:#14283a;--mut:#5b6b78;--card:#fff;--line:#cfdae1;--acc:#0f6b7a;--warn:#b4531a}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1c26;--ink:#e6eef3;--mut:#93a5b3;--card:#172936;--line:#2a3f4e;--acc:#4cc2d3;--warn:#f0a070}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans Sinhala",system-ui,sans-serif;line-height:1.7}
+main{max-width:520px;margin:0 auto;padding:32px 16px 48px}
+h1{font-size:1.5rem;margin:0 0 4px}
+.mut{color:var(--mut);margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px}
+label{display:block;margin-top:14px;font-weight:600}
+select,button,.btn{font:inherit;padding:11px 12px;border-radius:8px;border:1px solid var(--line);width:100%;margin-top:6px;background:transparent;color:inherit}
+select:disabled{opacity:.5}
+button,.btn{background:var(--acc);color:#fff;border:0;cursor:pointer;font-weight:600;text-align:center;text-decoration:none;display:block}
+.btn[hidden]{display:none}
+button.sec{background:transparent;color:var(--ink);border:1px solid var(--line)}
+button:focus-visible,select:focus-visible,.btn:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+#err{color:var(--warn);min-height:1.6em;margin:10px 0 0}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);max-width:480px;width:calc(100% - 32px);padding:22px;font-family:inherit}
+dialog::backdrop{background:rgba(10,20,30,.6)}
+#msg{margin:0 0 14px;font-size:1.05rem;white-space:pre-line}
+.row{display:grid;gap:8px}
+</style>
+</head>
+<body>
+<main>
+  <h1>පන්ති කාලසටහන</h1>
+  <p class="mut">ඔබට අදාළ පන්තිය තෝරා කාලසටහන බලන්න.</p>
+  <form class="card" id="f">
+    <label for="lv">සාමාන්‍ය පෙළ/ උසස් පෙළ</label>
+    <select id="lv"><option value="">තෝරන්න</option></select>
+    <label for="pl">නගරය සහ ආයතනය</label>
+    <select id="pl" disabled><option value="">තෝරන්න</option></select>
+    <label for="yr">විභාගයට පෙනී සිටින වර්ෂය</label>
+    <select id="yr" disabled><option value="">තෝරන්න</option></select>
+    <p id="err" role="alert"></p>
+    <button type="submit">Submit</button>
+  </form>
+</main>
+
+<dialog id="dlg" aria-labelledby="msg">
+  <p id="msg"></p>
+  <div class="row">
+    <a id="join" class="btn" target="_blank" rel="noopener">අලුතෙන් ඇතුළත් වීමට මෙතැනින් පිවිසෙන්න</a>
+    <a id="loc" class="btn" target="_blank" rel="noopener" hidden>පන්තිය පවත්වන ස්ථානය (Map location )</a>
+    <button type="button" class="sec" id="copy">පණිවිඩය copy කරන්න</button>
+    <button type="button" class="sec" id="close">වසන්න</button>
+  </div>
+</dialog>
+
+<script>
+/* ===== මෙම කොටස පමණක් සංස්කරණය කරන්න ===== */
+const TEACHER = "අමිල උඩවත්ත";
+const SUBJECT = "ඉතිහාසය";
+const JOIN_LINK = "https://amilaeduhelp.github.io/class/";
+const CLASSES = [
+  // level: සාමාන්‍ය පෙළ | උසස් පෙළ ; place: "නගරය ආයතනය" ; year: විභාග වර්ෂය ; when: දිනය සහ වේලාව
+  {level:"උසස් පෙළ",   place:"කළුතර Xenon", year:2027, when:"අඟහරුවාදා පස්වරු 2.30-5.00"},
+  {level:"උසස් පෙළ",   place:"කළුතර Xenon", year:2028, when:"බදාදා පස්වරු 2.30-5.00"},
+  {level:"උසස් පෙළ",   place:"පානදුර New Leeds",     year:2027, when:"සඳුදා පස්වරු 2.30-5.00"},
+  {level:"උසස් පෙළ",   place:"පානදුර New Leeds",     year:2028, when:"බ්‍රහස්පතින්දා පස්වරු 2.30-5.00"},
+  {level:"සාමාන්‍ය පෙළ", place:"කළුතර සිප්මිණි", year:2026, when:"පුණරීක්ෂණ පන්තියකි.අවසන් තීරණය ගෙන නැත. ඉක්මනින් ම දන්වනු ලැබේ."},
+];
+// ආයතනය අනුව ස්ථානයේ Google Maps link එක (නැති ආයතනවල බොත්තම නොපෙනේ)
+const MAPS = {
+  "කළුතර සිප්මිණි": "https://maps.app.goo.gl/dRtAynjMqXi1CHccA",
+  "කළුතර Xenon": "https://maps.app.goo.gl/9kT2X1FwQfN5VvK88",
+  "පානදුර New Leeds": "https://maps.app.goo.gl/UB4JoqaJu9eEXZWj7",
+};
+const LEVELS = ["සාමාන්‍ය පෙළ", "උසස් පෙළ"];
+/* ======================================== */
+
+const $ = id => document.getElementById(id);
+const uniq = a => [...new Set(a)];
+function fill(sel, vals){
+  sel.innerHTML = '<option value="">තෝරන්න</option>' + vals.map(v => `<option value="${v}">${v}</option>`).join("");
+  sel.disabled = !vals.length;
+}
+fill($("lv"), LEVELS.filter(l => CLASSES.some(c => c.level === l)));
+
+$("lv").onchange = () => {
+  fill($("pl"), uniq(CLASSES.filter(c => c.level === $("lv").value).map(c => c.place)));
+  fill($("yr"), []); $("err").textContent = "";
+};
+$("pl").onchange = () => {
+  fill($("yr"), uniq(CLASSES.filter(c => c.level === $("lv").value && c.place === $("pl").value).map(c => c.year)));
+  $("err").textContent = "";
+};
+
+let text = "";
+$("f").onsubmit = e => {
+  e.preventDefault();
+  if(!$("lv").value || !$("pl").value || !$("yr").value){
+    $("err").textContent = "කරුණාකර මට්ටම, ආයතනය සහ වර්ෂය තුනම තෝරන්න."; return;
+  }
+  const c = CLASSES.find(x => x.level === $("lv").value && x.place === $("pl").value && String(x.year) === $("yr").value);
+  if(!c){ $("err").textContent = "මෙම තේරීමට කාලසටහනක් නැත."; return; }
+  const body = `${TEACHER} - ${SUBJECT} පන්තිය.\n${c.level} - ${c.year}.\n${c.place} ආයතනය.\nපන්තිය ${c.when} පැවත්වේ.\nඅලුතෙන් ඇතුළත් වීමට මෙතැනින් පිවිසෙන්න`;
+  const map = c.map || MAPS[c.place] || "";
+  text = body + " - " + JOIN_LINK + (map ? "\nපන්තිය පවතින ස්ථානය - " + map : "");
+  $("msg").textContent = body;
+  $("join").href = JOIN_LINK;
+  $("loc").hidden = !map;
+  if(map) $("loc").href = map;
+  $("copy").textContent = "පණිවිඩය copy කරන්න";
+  $("dlg").showModal();
+};
+$("close").onclick = () => $("dlg").close();
+$("dlg").onclick = e => { if(e.target === $("dlg")) $("dlg").close(); };
+$("copy").onclick = async () => {
+  try{ await navigator.clipboard.writeText(text); $("copy").textContent = "Copy කළා"; }
+  catch{ $("copy").textContent = "Copy කළ නොහැක"; }
+};
+</script>
+</body>
+</html>
